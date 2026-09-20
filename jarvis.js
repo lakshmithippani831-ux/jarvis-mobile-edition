@@ -1,123 +1,197 @@
-class JarvisAssistant {
+class JarvisVoiceControl {
   constructor() {
     this.synth = window.speechSynthesis;
+    this.recognition = null;
     this.isListening = false;
-    
-    // Web Speech API Setup
+    this.isSpeaking = false;
+    this.speechQueue = [];
+
+    this.initSpeechRecognition();
+    this.initSpeechSynthesis();
+  }
+
+  // --- 1. SPEECH RECOGNITION SETUP ---
+  initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      this.recognition = new SpeechRecognition();
-      this.recognition.continuous = false;
-      this.recognition.interimResults = false;
-      this.recognition.lang = 'en-US';
-      this.setupSpeechListeners();
-    } else {
-      this.updateStatus("Speech Recognition not supported on this browser.");
+
+    if (!SpeechRecognition) {
+      this.updateStatus("Speech Recognition API is not supported in this browser.");
+      return;
+    }
+
+    this.recognition = new SpeechRecognition();
+    this.recognition.continuous = false; // Capture one command at a time
+    this.recognition.interimResults = false;
+    this.recognition.lang = 'en-US';
+
+    // Event Listeners
+    this.recognition.onstart = () => {
+      this.updateStatus("Listening for voice commands...");
+      this.updateHUD(true);
+    };
+
+    this.recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript.trim();
+      this.updateStatus(`You: "${transcript}"`);
+      this.processVoiceCommand(transcript);
+    };
+
+    this.recognition.onerror = (event) => {
+      if (event.error !== 'no-speech') {
+        this.updateStatus(`Voice Error: ${event.error}`);
+      }
+    };
+
+    this.recognition.onend = () => {
+      // Loop listening if JARVIS is active and not currently talking
+      if (this.isListening && !this.isSpeaking) {
+        setTimeout(() => this.startListening(), 300);
+      } else if (!this.isListening) {
+        this.updateHUD(false);
+      }
+    };
+  }
+
+  // --- 2. SPEECH SYNTHESIS SETUP ---
+  initSpeechSynthesis() {
+    if ('speechSynthesis' in window) {
+      // Warm up voices load
+      window.speechSynthesis.onvoiceschanged = () => {
+        this.synth.getVoices();
+      };
     }
   }
 
-  // --- SPEAK RESPONSE ---
+  // --- 3. VOICE ENGINE CONTROLS ---
+  toggleVoiceEngine() {
+    if (this.isListening) {
+      this.stopListening();
+    } else {
+      this.startVoiceEngine();
+    }
+  }
+
+  startVoiceEngine() {
+    this.isListening = true;
+    this.speak("JARVIS voice protocols online. Listening for your command, boss.");
+  }
+
+  stopListening() {
+    this.isListening = false;
+    if (this.recognition) {
+      this.recognition.stop();
+    }
+    if (this.synth.speaking) {
+      this.synth.cancel();
+    }
+    this.updateHUD(false);
+    this.updateStatus("Systems on standby.");
+  }
+
+  startListening() {
+    if (!this.recognition || this.isSpeaking) return;
+    try {
+      this.recognition.start();
+    } catch (e) {
+      // Catch instance where recognition is already running
+    }
+  }
+
+  // --- 4. NATURAL SPEECH SYNTHESIS (JARVIS VOICE) ---
   speak(text) {
-    this.updateStatus(text);
-    if (this.synth.speaking) this.synth.cancel();
+    if (!('speechSynthesis' in window)) {
+      this.updateStatus(text);
+      return;
+    }
+
+    // Stop active speech before outputting new statement
+    if (this.synth.speaking) {
+      this.synth.cancel();
+    }
+
+    this.isSpeaking = true;
+    this.updateStatus(`JARVIS: ${text}`);
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 0.95;
-    utterance.rate = 1.0;
+    utterance.pitch = 0.95; // Slightly deeper metallic tone
+    utterance.rate = 1.0;   // Standard cadence
 
+    // Voice selection priority: Natural/Google English voices
     const voices = this.synth.getVoices();
-    const voice = voices.find(v => v.name.includes('Google') || v.lang.startsWith('en'));
-    if (voice) utterance.voice = voice;
+    const jarvisVoice = voices.find(v => 
+      v.name.includes('Google UK English Male') || 
+      v.name.includes('Daniel') || 
+      v.name.includes('Google') || 
+      v.lang.startsWith('en')
+    );
+
+    if (jarvisVoice) utterance.voice = jarvisVoice;
 
     utterance.onend = () => {
+      this.isSpeaking = false;
+      // Resume listening loop after speech completes
       if (this.isListening) {
         setTimeout(() => this.startListening(), 400);
       }
     };
 
+    utterance.onerror = () => {
+      this.isSpeaking = false;
+    };
+
     this.synth.speak(utterance);
   }
 
-  // --- VOICE LISTENING CONTROLS ---
-  toggleListening() {
-    if (this.isListening) {
-      this.isListening = false;
-      if (this.recognition) this.recognition.stop();
-      this.updateHUD(false);
-      this.speak("Standby mode engaged.");
-    } else {
-      this.isListening = true;
-      this.updateHUD(true);
-      this.speak("JARVIS online. How can I assist you?");
-    }
-  }
-
-  startListening() {
-    try {
-      if (this.recognition) this.recognition.start();
-    } catch (e) {}
-  }
-
-  setupSpeechListeners() {
-    this.recognition.onstart = () => this.updateStatus("Listening...");
-    
-    this.recognition.onresult = (event) => {
-      const command = event.results[0][0].transcript;
-      this.updateStatus(`You: "${command}"`);
-      this.processCommand(command);
-    };
-
-    this.recognition.onend = () => {
-      if (this.isListening && !this.synth.speaking) {
-        this.startListening();
-      }
-    };
-  }
-
-  // --- COMMAND PROCESSING & ACTION ROUTING ---
-  async processCommand(command) {
+  // --- 5. VOICE COMMAND PROCESSOR ---
+  async processVoiceCommand(command) {
     const cmd = command.toLowerCase().trim();
 
-    // 1. Direct App / Website Launcher Commands
-    if (cmd.includes('open play store') || cmd.includes('play store')) {
-      this.speak("Opening Google Play Store.");
-      window.open('https://play.google.com/store', '_blank');
+    // Direct Web & Local Actions
+    if (cmd.includes('hello') || cmd.includes('hey jarvis') || cmd.includes('hi')) {
+      this.speak("Greetings, boss. All primary systems are fully operational.");
       return;
     }
+
+    if (cmd.includes('time')) {
+      const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.speak(`The current time is ${timeString}.`);
+      return;
+    }
+
+    if (cmd.includes('date') || cmd.includes('day')) {
+      const dateString = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      this.speak(`Today is ${dateString}.`);
+      return;
+    }
+
     if (cmd.includes('open google')) {
-      this.speak("Opening Google.");
-      window.open('https://www.google.com', '_blank');
+      this.speak("Opening Google search.");
+      window.location.href = 'https://www.google.com';
       return;
     }
+
     if (cmd.includes('open youtube')) {
-      this.speak("Opening YouTube.");
-      window.open('https://www.youtube.com', '_blank');
-      return;
-    }
-    if (cmd.includes('open whatsapp')) {
-      this.speak("Opening WhatsApp.");
-      window.open('https://web.whatsapp.com', '_blank');
+      this.speak("Launching YouTube.");
+      window.location.href = 'https://www.youtube.com';
       return;
     }
 
-    // 2. Direct Search Action (Only triggers if explicitly asked to search)
-    if (cmd.startsWith('search for') || cmd.startsWith('search ')) {
-      const query = cmd.replace('search for', '').replace('search', '').trim();
-      this.speak(`Searching Google for ${query}.`);
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+    if (cmd.includes('open play store') || cmd.includes('play store')) {
+      this.speak("Accessing Google Play Store.");
+      window.location.href = 'https://play.google.com/store';
       return;
     }
 
-    // 3. AI Brain (Gemini API) for general queries and tasks
+    // AI Query Processing (Gemini API Integration)
     const keyInput = document.getElementById('apiKeySlot') || document.getElementById('apiKeyInput');
     const apiKey = keyInput ? keyInput.value.trim() : (localStorage.getItem('JARVIS_API_KEY') || '');
 
     if (!apiKey) {
-      this.speak("Please enter your Gemini API key in the slot to process AI requests.");
+      this.speak("Please enter your Gemini API key into the key field to process dynamic tasks.");
       return;
     }
 
-    this.updateStatus("Processing request with AI core...");
+    this.updateStatus("Querying neural network...");
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -125,7 +199,7 @@ class JarvisAssistant {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., an intelligent AI assistant. Answer concisely in 1 to 2 sentences. User: ${command}` }] }]
+            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., a voice assistant. Answer concisely in 1 to 2 short sentences suitable for text-to-speech output. User query: ${command}` }] }]
           })
         }
       );
@@ -133,33 +207,41 @@ class JarvisAssistant {
       const data = await response.json();
 
       if (data.candidates && data.candidates[0]) {
-        const aiReply = data.candidates[0].content.parts[0].text;
-        this.speak(aiReply);
+        const replyText = data.candidates[0].content.parts[0].text;
+        this.speak(replyText);
       } else {
-        this.speak("API Key Error. Please check your key.");
+        this.speak("API request failed. Please check your credentials.");
       }
-    } catch (err) {
-      this.speak("Network connection error.");
+    } catch (error) {
+      this.speak("Network communication failure. Unable to reach AI core.");
     }
   }
 
+  // --- 6. UI HUD UPDATES ---
   updateHUD(active) {
     const voiceStatus = document.getElementById('voiceStatus');
     const coreStatus = document.getElementById('coreStatus');
+
     if (voiceStatus) {
       voiceStatus.innerText = active ? "• ACTIVE" : "LOCKED";
       voiceStatus.className = active ? "status-val green" : "status-val red";
     }
-    if (coreStatus) coreStatus.innerText = active ? "CORE LISTENING" : "CORE ACTIVE";
+    if (coreStatus) {
+      coreStatus.innerText = active ? "CORE LISTENING" : "CORE STANDBY";
+    }
   }
 
-  updateStatus(msg) {
-    const log = document.getElementById('statusLog') || document.getElementById('reply');
-    if (log) log.innerText = msg;
+  updateStatus(message) {
+    const statusLog = document.getElementById('statusLog') || document.getElementById('reply');
+    if (statusLog) {
+      statusLog.innerText = message;
+    }
   }
 }
 
-const jarvis = new JarvisAssistant();
+// Initialize Voice Control Module
+const jarvis = new JarvisVoiceControl();
+
 
 
 
