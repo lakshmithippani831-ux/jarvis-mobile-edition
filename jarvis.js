@@ -1,12 +1,13 @@
-class JarvisMobile {
+class JarvisAssistant {
   constructor() {
     this.synth = window.speechSynthesis;
     this.isListening = false;
 
+    // Initialize Web Speech API Recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      this.updateStatus("Speech API not supported on this browser.");
+      this.updateStatus("Speech Recognition API is not supported in this browser.");
       return;
     }
 
@@ -15,174 +16,154 @@ class JarvisMobile {
     this.recognition.interimResults = false;
     this.recognition.lang = 'en-US';
 
-    this.initListeners();
+    this.setupEventListeners();
   }
 
+  // --- SPEAKING FUNCTIONALITY ---
   speak(text) {
     this.updateStatus(text);
 
+    // Cancel any ongoing speech before speaking new text
     if (this.synth.speaking) {
       this.synth.cancel();
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 0.9;
+    utterance.pitch = 0.95;
     utterance.rate = 1.0;
 
+    // Pick a natural-sounding voice if available
     const voices = this.synth.getVoices();
-    const preferredVoice = voices.find(v => 
+    const selectedVoice = voices.find(v => 
       v.name.includes('Google') || 
-      v.name.includes('Daniel') || 
+      v.name.includes('Natural') || 
       v.lang.startsWith('en')
     );
+    if (selectedVoice) utterance.voice = selectedVoice;
 
-    if (preferredVoice) utterance.voice = preferredVoice;
-
+    // Automatically resume listening after finished speaking (if still active)
     utterance.onend = () => {
       if (this.isListening) {
-        setTimeout(() => this.safeStart(), 400);
+        setTimeout(() => this.startListening(), 500);
       }
     };
 
     this.synth.speak(utterance);
   }
 
+  // --- LISTENING CONTROLS ---
   toggleListening() {
     if (this.isListening) {
       this.isListening = false;
       this.recognition.stop();
       this.updateHUD(false);
-      this.speak("Standby mode engaged.");
+      this.speak("Standby mode activated.");
     } else {
       this.isListening = true;
       this.updateHUD(true);
-      this.speak("Systems online. How can I assist you, boss?");
+      this.speak("JARVIS online. Listening for your command.");
     }
   }
 
-  safeStart() {
+  startListening() {
     try {
       this.recognition.start();
-    } catch (e) {}
+    } catch (e) {
+      // Handles cases where recognition is already active
+    }
   }
 
-  initListeners() {
+  // --- SPEECH RECOGNITION LISTENERS ---
+  setupEventListeners() {
     this.recognition.onstart = () => {
       this.updateStatus("Listening...");
     };
 
     this.recognition.onresult = (event) => {
-      const command = event.results[0][0].transcript.trim().toLowerCase();
-      this.processCommand(command);
+      const transcript = event.results[0][0].transcript;
+      this.updateStatus(`You: "${transcript}"`);
+      this.processQuery(transcript);
     };
 
     this.recognition.onerror = (event) => {
       if (event.error !== 'no-speech') {
-        this.updateStatus(`Error: ${event.error}`);
+        this.updateStatus(`Audio error: ${event.error}`);
       }
     };
 
     this.recognition.onend = () => {
       if (this.isListening && !this.synth.speaking) {
-        this.safeStart();
+        this.startListening();
       }
     };
+
+    // Attach click listener to arc core or mic element if present
+    const coreElement = document.getElementById('arcCore') || document.body;
+    coreElement.addEventListener('click', () => this.toggleListening());
   }
 
-  async processCommand(command) {
+  // --- COMMAND PROCESSING & VOICE RESPONSES ---
+  async processQuery(command) {
     const cmd = command.toLowerCase().trim();
 
-    // 1. Identity & Greetings
-    if (cmd.includes('hello') || cmd.includes('hey') || cmd.includes('hi jarvis')) {
-      this.speak("Hello boss. All systems are operating at peak performance.");
+    if (cmd.includes('hello') || cmd.includes('hi') || cmd.includes('hey')) {
+      this.speak("Greetings! All core systems are running smoothly.");
     } 
-    else if (cmd.includes('who are you') || cmd.includes('your name')) {
-      this.speak("I am J.A.R.V.I.S., your natural language voice assistant.");
-    }
-
-    // 2. Time and Date
     else if (cmd.includes('time')) {
-      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      this.speak(`The current time is ${now}.`);
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.speak(`The current time is ${timeStr}.`);
     } 
     else if (cmd.includes('date') || cmd.includes('day')) {
-      const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      this.speak(`Today is ${today}.`);
-    }
-
-    // 3. Web Navigation Triggers
+      const dateStr = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      this.speak(`Today is ${dateStr}.`);
+    } 
     else if (cmd.includes('open google')) {
-      this.speak("Opening Google now.");
+      this.speak("Opening Google search.");
       window.open('https://www.google.com', '_blank');
-    }
+    } 
     else if (cmd.includes('open youtube')) {
       this.speak("Opening YouTube.");
       window.open('https://www.youtube.com', '_blank');
-    }
-    else if (cmd.includes('search for') || cmd.startsWith('search ')) {
-      const query = cmd.replace('search for', '').replace('search', '').trim();
-      this.speak(`Searching Google for ${query}.`);
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
-    }
-
-    // 4. Basic Math Calculations
-    else if (cmd.includes('+') || cmd.includes('-') || cmd.includes('x') || cmd.includes('/') || cmd.includes('plus') || cmd.includes('minus') || cmd.includes('times') || cmd.includes('divided by')) {
-      try {
-        let MathQuery = cmd
-          .replace(/plus/g, '+')
-          .replace(/minus/g, '-')
-          .replace(/times/g, '*')
-          .replace(/x/g, '*')
-          .replace(/divided by/g, '/');
-        
-        // Sanitize to math expression only
-        let expression = MathQuery.match(/[0-9\+\-\*\/\.\s\(\)]+/g).join('');
-        let result = eval(expression);
-        this.speak(`The calculation equals ${result}.`);
-      } catch (err) {
-        this.speak("I couldn't solve that math problem, boss.");
-      }
-    }
-
-    // 5. Smart General Knowledge Fallback (Wikipedia API)
+    } 
     else {
-      this.updateStatus(`Searching database for: "${command}"...`);
+      // Query Wikipedia for dynamic speech answers
+      this.updateStatus(`Searching information for: ${command}...`);
       try {
-        const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(command)}`);
+        const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cmd)}`);
         if (response.ok) {
           const data = await response.json();
           if (data.extract) {
-            // Read first 2 sentences of Wikipedia summary
-            let summary = data.extract.split('. ').slice(0, 2).join('. ');
-            this.speak(summary);
+            const shortExtract = data.extract.split('. ').slice(0, 2).join('. ');
+            this.speak(shortExtract);
             return;
           }
         }
-      } catch (e) {
-        // Fallback if network/API fails
+      } catch (err) {
+        // Fallback to web search
       }
-      
-      this.speak(`I found no direct local matches for ${command}. Redirecting query to Google.`);
+
+      this.speak(`Searching Google for ${command}.`);
       window.open(`https://www.google.com/search?q=${encodeURIComponent(command)}`, '_blank');
     }
   }
 
+  // --- UI UPDATES ---
   updateHUD(active) {
-    const voiceStatus = document.getElementById('voiceStatus');
     const coreStatus = document.getElementById('coreStatus');
-    
+    const voiceStatus = document.getElementById('voiceStatus');
+
     if (active) {
+      if (coreStatus) coreStatus.innerText = "CORE LISTENING";
       if (voiceStatus) {
         voiceStatus.innerText = "• ACTIVE";
         voiceStatus.className = "status-val green";
       }
-      if (coreStatus) coreStatus.innerText = "CORE LISTENING";
     } else {
+      if (coreStatus) coreStatus.innerText = "CORE STANDBY";
       if (voiceStatus) {
-        voiceStatus.innerText = "LOCKED";
+        voiceStatus.innerText = "STANDBY";
         voiceStatus.className = "status-val red";
       }
-      if (coreStatus) coreStatus.innerText = "CORE ACTIVE";
     }
   }
 
@@ -190,12 +171,13 @@ class JarvisMobile {
     const statusLog = document.getElementById('statusLog');
     if (statusLog) {
       statusLog.innerText = message;
-      statusLog.scrollTop = statusLog.scrollHeight;
     }
   }
 }
 
-const jarvis = new JarvisMobile();
+// Initialize JARVIS
+const jarvis = new JarvisAssistant();
+
 
 
 
