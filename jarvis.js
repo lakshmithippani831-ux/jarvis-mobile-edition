@@ -56,7 +56,7 @@ class JarvisMobile {
     } else {
       this.isListening = true;
       this.updateHUD(true);
-      this.speak("Systems online. Listening.");
+      this.speak("Systems online. How can I assist you, boss?");
     }
   }
 
@@ -89,28 +89,81 @@ class JarvisMobile {
     };
   }
 
-  processCommand(command) {
-    if (command.includes('hello') || command.includes('hey jarvis')) {
-      this.speak("Greetings, boss.");
+  async processCommand(command) {
+    const cmd = command.toLowerCase().trim();
+
+    // 1. Identity & Greetings
+    if (cmd.includes('hello') || cmd.includes('hey') || cmd.includes('hi jarvis')) {
+      this.speak("Hello boss. All systems are operating at peak performance.");
     } 
-    else if (command.includes('time')) {
+    else if (cmd.includes('who are you') || cmd.includes('your name')) {
+      this.speak("I am J.A.R.V.I.S., your natural language voice assistant.");
+    }
+
+    // 2. Time and Date
+    else if (cmd.includes('time')) {
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       this.speak(`The current time is ${now}.`);
     } 
-    else if (command.includes('date')) {
-      const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    else if (cmd.includes('date') || cmd.includes('day')) {
+      const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       this.speak(`Today is ${today}.`);
-    } 
-    else if (command.includes('open google')) {
-      this.speak("Redirecting to Google.");
+    }
+
+    // 3. Web Navigation Triggers
+    else if (cmd.includes('open google')) {
+      this.speak("Opening Google now.");
       window.open('https://www.google.com', '_blank');
-    } 
-    else if (command.includes('open youtube')) {
-      this.speak("Redirecting to YouTube.");
+    }
+    else if (cmd.includes('open youtube')) {
+      this.speak("Opening YouTube.");
       window.open('https://www.youtube.com', '_blank');
-    } 
+    }
+    else if (cmd.includes('search for') || cmd.startsWith('search ')) {
+      const query = cmd.replace('search for', '').replace('search', '').trim();
+      this.speak(`Searching Google for ${query}.`);
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+    }
+
+    // 4. Basic Math Calculations
+    else if (cmd.includes('+') || cmd.includes('-') || cmd.includes('x') || cmd.includes('/') || cmd.includes('plus') || cmd.includes('minus') || cmd.includes('times') || cmd.includes('divided by')) {
+      try {
+        let MathQuery = cmd
+          .replace(/plus/g, '+')
+          .replace(/minus/g, '-')
+          .replace(/times/g, '*')
+          .replace(/x/g, '*')
+          .replace(/divided by/g, '/');
+        
+        // Sanitize to math expression only
+        let expression = MathQuery.match(/[0-9\+\-\*\/\.\s\(\)]+/g).join('');
+        let result = eval(expression);
+        this.speak(`The calculation equals ${result}.`);
+      } catch (err) {
+        this.speak("I couldn't solve that math problem, boss.");
+      }
+    }
+
+    // 5. Smart General Knowledge Fallback (Wikipedia API)
     else {
-      this.speak(`Processed query: "${command}"`);
+      this.updateStatus(`Searching database for: "${command}"...`);
+      try {
+        const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(command)}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.extract) {
+            // Read first 2 sentences of Wikipedia summary
+            let summary = data.extract.split('. ').slice(0, 2).join('. ');
+            this.speak(summary);
+            return;
+          }
+        }
+      } catch (e) {
+        // Fallback if network/API fails
+      }
+      
+      this.speak(`I found no direct local matches for ${command}. Redirecting query to Google.`);
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(command)}`, '_blank');
     }
   }
 
@@ -143,6 +196,7 @@ class JarvisMobile {
 }
 
 const jarvis = new JarvisMobile();
+
 
 
 
