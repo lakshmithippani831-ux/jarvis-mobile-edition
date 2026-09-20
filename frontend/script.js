@@ -3,17 +3,14 @@ class JarvisMobile {
     this.synth = window.speechSynthesis;
     this.isListening = false;
 
-    // Detect Web Speech API across Android and iOS Safari
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      this.updateStatus("Speech API not supported. Use Mobile Chrome or Safari.");
+      this.updateStatus("Speech API not supported on this browser.");
       return;
     }
 
     this.recognition = new SpeechRecognition();
-    
-    // Mobile Chrome performs best with continuous false to prevent aggressive socket timeouts
     this.recognition.continuous = false;
     this.recognition.interimResults = false;
     this.recognition.lang = 'en-US';
@@ -21,30 +18,26 @@ class JarvisMobile {
     this.initListeners();
   }
 
-  // --- VOICE SYNTHESIS (OUTPUT) ---
   speak(text) {
     this.updateStatus(text);
 
     if (this.synth.speaking) {
-      this.synth.cancel(); // Stop active speech for new prompt
+      this.synth.cancel();
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 0.95;
+    utterance.pitch = 0.9;
     utterance.rate = 1.0;
 
-    // Select mobile voice (iOS Siri voice or Google UK/US Male on Android)
     const voices = this.synth.getVoices();
     const preferredVoice = voices.find(v => 
       v.name.includes('Google') || 
-      v.name.includes('Samantha') || 
-      v.name.includes('Daniel') ||
+      v.name.includes('Daniel') || 
       v.lang.startsWith('en')
     );
 
     if (preferredVoice) utterance.voice = preferredVoice;
 
-    // Resume recognition automatically after JARVIS finishes speaking on mobile
     utterance.onend = () => {
       if (this.isListening) {
         setTimeout(() => this.safeStart(), 400);
@@ -54,14 +47,15 @@ class JarvisMobile {
     this.synth.speak(utterance);
   }
 
-  // --- MOBILE MICROPHONE CONTROLS ---
   toggleListening() {
     if (this.isListening) {
       this.isListening = false;
       this.recognition.stop();
-      this.speak("Standby mode activated.");
+      this.updateHUD(false);
+      this.speak("Standby mode engaged.");
     } else {
       this.isListening = true;
+      this.updateHUD(true);
       this.speak("Systems online. Listening.");
     }
   }
@@ -69,33 +63,25 @@ class JarvisMobile {
   safeStart() {
     try {
       this.recognition.start();
-    } catch (e) {
-      // Handles mobile edge-cases where recognition is already active
-    }
+    } catch (e) {}
   }
 
-  // --- EVENT LISTENERS ---
   initListeners() {
     this.recognition.onstart = () => {
-      this.updateStatus("Listening... (Speak now)");
+      this.updateStatus("Listening...");
     };
 
     this.recognition.onresult = (event) => {
       const command = event.results[0][0].transcript.trim().toLowerCase();
-      console.log(`Mobile input received: "${command}"`);
       this.processCommand(command);
     };
 
     this.recognition.onerror = (event) => {
-      if (event.error === 'no-speech') {
-        console.log("No speech detected on mobile.");
-      } else {
-        console.error("Mobile Speech Error:", event.error);
+      if (event.error !== 'no-speech') {
         this.updateStatus(`Error: ${event.error}`);
       }
     };
 
-    // Auto-restart loop when recognition stops while active
     this.recognition.onend = () => {
       if (this.isListening && !this.synth.speaking) {
         this.safeStart();
@@ -103,43 +89,60 @@ class JarvisMobile {
     };
   }
 
-  // --- COMMAND INTERPRETER ---
   processCommand(command) {
     if (command.includes('hello') || command.includes('hey jarvis')) {
-      this.speak("Hello boss. Mobile systems ready.");
+      this.speak("Greetings, boss.");
     } 
     else if (command.includes('time')) {
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      this.speak(`It is currently ${now}.`);
+      this.speak(`The current time is ${now}.`);
     } 
     else if (command.includes('date')) {
       const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
       this.speak(`Today is ${today}.`);
     } 
     else if (command.includes('open google')) {
-      this.speak("Opening Google.");
+      this.speak("Redirecting to Google.");
       window.open('https://www.google.com', '_blank');
     } 
     else if (command.includes('open youtube')) {
-      this.speak("Opening YouTube.");
+      this.speak("Redirecting to YouTube.");
       window.open('https://www.youtube.com', '_blank');
     } 
-    else if (command.includes('status')) {
-      this.speak("Mobile core online. Battery and network optimal.");
-    } 
     else {
-      this.speak(`I heard "${command}", but no command is linked yet.`);
+      this.speak(`Processed query: "${command}"`);
     }
   }
 
-  // Visual text logger for screen
+  updateHUD(active) {
+    const voiceStatus = document.getElementById('voiceStatus');
+    const coreStatus = document.getElementById('coreStatus');
+    
+    if (active) {
+      if (voiceStatus) {
+        voiceStatus.innerText = "• ACTIVE";
+        voiceStatus.className = "status-val green";
+      }
+      if (coreStatus) coreStatus.innerText = "CORE LISTENING";
+    } else {
+      if (voiceStatus) {
+        voiceStatus.innerText = "LOCKED";
+        voiceStatus.className = "status-val red";
+      }
+      if (coreStatus) coreStatus.innerText = "CORE ACTIVE";
+    }
+  }
+
   updateStatus(message) {
     const statusLog = document.getElementById('statusLog');
-    if (statusLog) statusLog.innerText = message;
+    if (statusLog) {
+      statusLog.innerText = message;
+      statusLog.scrollTop = statusLog.scrollHeight;
+    }
   }
 }
 
-// Global instance for HTML binding
 const jarvis = new JarvisMobile();
+
 
 
