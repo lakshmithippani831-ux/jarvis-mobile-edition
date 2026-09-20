@@ -74,11 +74,16 @@ class JarvisAssistant {
     };
   }
 
-  // --- TASK EXECUTION & AI BRAIN ---
+  // --- COMMAND PROCESSING & ACTION ROUTING ---
   async processCommand(command) {
     const cmd = command.toLowerCase().trim();
 
-    // Local Tasks (Web Actions)
+    // 1. Direct App / Website Launcher Commands
+    if (cmd.includes('open play store') || cmd.includes('play store')) {
+      this.speak("Opening Google Play Store.");
+      window.open('https://play.google.com/store', '_blank');
+      return;
+    }
     if (cmd.includes('open google')) {
       this.speak("Opening Google.");
       window.open('https://www.google.com', '_blank');
@@ -89,18 +94,30 @@ class JarvisAssistant {
       window.open('https://www.youtube.com', '_blank');
       return;
     }
+    if (cmd.includes('open whatsapp')) {
+      this.speak("Opening WhatsApp.");
+      window.open('https://web.whatsapp.com', '_blank');
+      return;
+    }
 
-    // Retrieve API Key from input field or local storage
+    // 2. Direct Search Action (Only triggers if explicitly asked to search)
+    if (cmd.startsWith('search for') || cmd.startsWith('search ')) {
+      const query = cmd.replace('search for', '').replace('search', '').trim();
+      this.speak(`Searching Google for ${query}.`);
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+      return;
+    }
+
+    // 3. AI Brain (Gemini API) for general queries and tasks
     const keyInput = document.getElementById('apiKeySlot') || document.getElementById('apiKeyInput');
     const apiKey = keyInput ? keyInput.value.trim() : (localStorage.getItem('JARVIS_API_KEY') || '');
 
     if (!apiKey) {
-      this.speak("Please enter your Gemini API key in the input field to enable full AI task processing.");
+      this.speak("Please enter your Gemini API key in the slot to process AI requests.");
       return;
     }
 
-    // Call Gemini API for dynamic tasks & queries
-    this.updateStatus("Processing task with AI core...");
+    this.updateStatus("Processing request with AI core...");
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -108,7 +125,7 @@ class JarvisAssistant {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., an AI assistant. Keep responses brief, direct, and conversational (max 2-3 sentences). User task: ${command}` }] }]
+            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., an intelligent AI assistant. Answer concisely in 1 to 2 sentences. User: ${command}` }] }]
           })
         }
       );
@@ -119,10 +136,10 @@ class JarvisAssistant {
         const aiReply = data.candidates[0].content.parts[0].text;
         this.speak(aiReply);
       } else {
-        this.speak("API Error. Please check if your API Key is valid.");
+        this.speak("API Key Error. Please check your key.");
       }
     } catch (err) {
-      this.speak("Network connection error. Unable to process request.");
+      this.speak("Network connection error.");
     }
   }
 
@@ -143,6 +160,7 @@ class JarvisAssistant {
 }
 
 const jarvis = new JarvisAssistant();
+
 
 
 
