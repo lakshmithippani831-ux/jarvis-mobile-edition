@@ -3,7 +3,6 @@ class JarvisAssistant {
     this.synth = window.speechSynthesis;
     this.isListening = false;
     
-    // Web Speech API Setup
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       this.recognition = new SpeechRecognition();
@@ -11,12 +10,9 @@ class JarvisAssistant {
       this.recognition.interimResults = false;
       this.recognition.lang = 'en-US';
       this.setupSpeechListeners();
-    } else {
-      this.updateStatus("Speech Recognition not supported on this browser.");
     }
   }
 
-  // --- SPEAK RESPONSE ---
   speak(text) {
     this.updateStatus(text);
     if (this.synth.speaking) this.synth.cancel();
@@ -38,7 +34,6 @@ class JarvisAssistant {
     this.synth.speak(utterance);
   }
 
-  // --- VOICE LISTENING CONTROLS ---
   toggleListening() {
     if (this.isListening) {
       this.isListening = false;
@@ -48,7 +43,7 @@ class JarvisAssistant {
     } else {
       this.isListening = true;
       this.updateHUD(true);
-      this.speak("JARVIS online. How can I assist you?");
+      this.speak("JARVIS online. Listening.");
     }
   }
 
@@ -74,50 +69,36 @@ class JarvisAssistant {
     };
   }
 
-  // --- COMMAND PROCESSING & ACTION ROUTING ---
   async processCommand(command) {
     const cmd = command.toLowerCase().trim();
 
-    // 1. Direct App / Website Launcher Commands
-    if (cmd.includes('open play store') || cmd.includes('play store')) {
-      this.speak("Opening Google Play Store.");
-      window.open('https://play.google.com/store', '_blank');
+    // Direct Website / App Launchers (Bypasses Google Search)
+    if (cmd.includes('play store')) {
+      this.speak("Opening Play Store.");
+      window.location.href = 'https://play.google.com/store';
       return;
     }
-    if (cmd.includes('open google')) {
-      this.speak("Opening Google.");
-      window.open('https://www.google.com', '_blank');
-      return;
-    }
-    if (cmd.includes('open youtube')) {
+    if (cmd.includes('youtube')) {
       this.speak("Opening YouTube.");
-      window.open('https://www.youtube.com', '_blank');
+      window.location.href = 'https://www.youtube.com';
       return;
     }
-    if (cmd.includes('open whatsapp')) {
-      this.speak("Opening WhatsApp.");
-      window.open('https://web.whatsapp.com', '_blank');
-      return;
-    }
-
-    // 2. Direct Search Action (Only triggers if explicitly asked to search)
-    if (cmd.startsWith('search for') || cmd.startsWith('search ')) {
-      const query = cmd.replace('search for', '').replace('search', '').trim();
-      this.speak(`Searching Google for ${query}.`);
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+    if (cmd.includes('google') && !cmd.includes('search')) {
+      this.speak("Opening Google.");
+      window.location.href = 'https://www.google.com';
       return;
     }
 
-    // 3. AI Brain (Gemini API) for general queries and tasks
+    // AI Core Processing (Gemini API)
     const keyInput = document.getElementById('apiKeySlot') || document.getElementById('apiKeyInput');
     const apiKey = keyInput ? keyInput.value.trim() : (localStorage.getItem('JARVIS_API_KEY') || '');
 
     if (!apiKey) {
-      this.speak("Please enter your Gemini API key in the slot to process AI requests.");
+      this.speak("Please enter your Gemini API key.");
       return;
     }
 
-    this.updateStatus("Processing request with AI core...");
+    this.updateStatus("Processing with AI...");
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -125,7 +106,7 @@ class JarvisAssistant {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., an intelligent AI assistant. Answer concisely in 1 to 2 sentences. User: ${command}` }] }]
+            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., a direct voice assistant. Respond concisely in 1 sentence. Command: ${command}` }] }]
           })
         }
       );
@@ -139,7 +120,7 @@ class JarvisAssistant {
         this.speak("API Key Error. Please check your key.");
       }
     } catch (err) {
-      this.speak("Network connection error.");
+      this.speak("Connection error.");
     }
   }
 
@@ -160,6 +141,7 @@ class JarvisAssistant {
 }
 
 const jarvis = new JarvisAssistant();
+
 
 
 
