@@ -3,6 +3,7 @@ class JarvisAssistant {
     this.synth = window.speechSynthesis;
     this.isListening = false;
     
+    // Web Speech API Setup
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       this.recognition = new SpeechRecognition();
@@ -10,9 +11,12 @@ class JarvisAssistant {
       this.recognition.interimResults = false;
       this.recognition.lang = 'en-US';
       this.setupSpeechListeners();
+    } else {
+      this.updateStatus("Speech Recognition not supported on this browser.");
     }
   }
 
+  // --- SPEAK RESPONSE ---
   speak(text) {
     this.updateStatus(text);
     if (this.synth.speaking) this.synth.cancel();
@@ -34,6 +38,7 @@ class JarvisAssistant {
     this.synth.speak(utterance);
   }
 
+  // --- VOICE LISTENING CONTROLS ---
   toggleListening() {
     if (this.isListening) {
       this.isListening = false;
@@ -43,7 +48,7 @@ class JarvisAssistant {
     } else {
       this.isListening = true;
       this.updateHUD(true);
-      this.speak("JARVIS online. Listening.");
+      this.speak("JARVIS online. How can I assist you?");
     }
   }
 
@@ -69,36 +74,33 @@ class JarvisAssistant {
     };
   }
 
+  // --- TASK EXECUTION & AI BRAIN ---
   async processCommand(command) {
     const cmd = command.toLowerCase().trim();
 
-    // Direct Website / App Launchers (Bypasses Google Search)
-    if (cmd.includes('play store')) {
-      this.speak("Opening Play Store.");
-      window.location.href = 'https://play.google.com/store';
-      return;
-    }
-    if (cmd.includes('youtube')) {
-      this.speak("Opening YouTube.");
-      window.location.href = 'https://www.youtube.com';
-      return;
-    }
-    if (cmd.includes('google') && !cmd.includes('search')) {
+    // Local Tasks (Web Actions)
+    if (cmd.includes('open google')) {
       this.speak("Opening Google.");
-      window.location.href = 'https://www.google.com';
+      window.open('https://www.google.com', '_blank');
+      return;
+    }
+    if (cmd.includes('open youtube')) {
+      this.speak("Opening YouTube.");
+      window.open('https://www.youtube.com', '_blank');
       return;
     }
 
-    // AI Core Processing (Gemini API)
+    // Retrieve API Key from input field or local storage
     const keyInput = document.getElementById('apiKeySlot') || document.getElementById('apiKeyInput');
     const apiKey = keyInput ? keyInput.value.trim() : (localStorage.getItem('JARVIS_API_KEY') || '');
 
     if (!apiKey) {
-      this.speak("Please enter your Gemini API key.");
+      this.speak("Please enter your Gemini API key in the input field to enable full AI task processing.");
       return;
     }
 
-    this.updateStatus("Processing with AI...");
+    // Call Gemini API for dynamic tasks & queries
+    this.updateStatus("Processing task with AI core...");
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -106,7 +108,7 @@ class JarvisAssistant {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., a direct voice assistant. Respond concisely in 1 sentence. Command: ${command}` }] }]
+            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., an AI assistant. Keep responses brief, direct, and conversational (max 2-3 sentences). User task: ${command}` }] }]
           })
         }
       );
@@ -117,10 +119,10 @@ class JarvisAssistant {
         const aiReply = data.candidates[0].content.parts[0].text;
         this.speak(aiReply);
       } else {
-        this.speak("API Key Error. Please check your key.");
+        this.speak("API Error. Please check if your API Key is valid.");
       }
     } catch (err) {
-      this.speak("Connection error.");
+      this.speak("Network connection error. Unable to process request.");
     }
   }
 
@@ -141,6 +143,7 @@ class JarvisAssistant {
 }
 
 const jarvis = new JarvisAssistant();
+
 
 
 
