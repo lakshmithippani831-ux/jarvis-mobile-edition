@@ -1,1 +1,80 @@
+import json
+import os
+from google import genai
+
+# Initialize Google Gen AI Client
+client = genai.Client(api_key="YOUR_GEMINI_API_KEY")
+MEMORY_FILE = "memory.json"
+
+class PermanentMemory:
+    def __init__(self, filepath=MEMORY_FILE):
+        self.filepath = filepath
+        self.data = self._load()
+
+    def _load(self):
+        """Loads memory from local storage."""
+        if os.path.exists(self.filepath):
+            with open(self.filepath, "r") as f:
+                return json.load(f)
+        return {"user_profile": {}, "facts": []}
+
+    def save_fact(self, fact):
+        """Permanently saves a new fact to disk."""
+        if fact not in self.data["facts"]:
+            self.data["facts"].append(fact)
+            with open(self.filepath, "w") as f:
+                json.dump(self.data, f, indent=4)
+            return True
+        return False
+
+    def get_system_context(self):
+        """Formats stored memory into system instructions for Gemini."""
+        facts_list = "\n".join([f"- {fact}" for fact in self.data["facts"]])
+        profile = self.data.get("user_profile", {})
+        return f"User Profile: {profile}\nSaved Long-Term Facts:\n{facts_list if facts_list else 'No saved facts yet.'}"
+
+# Initialize Memory System
+memory = PermanentMemory()
+
+def build_system_instruction():
+    return f"""
+    You are JARVIS, an AI assistant running locally on a mobile device.
+    Here is your permanent long-term memory about the user:
+    {memory.get_system_context()}
+    
+    If the user explicitly tells you to remember something (e.g., 'Remember that...'), 
+    acknowledge it so the application knows to save it.
+    """
+
+def run_jarvis():
+    # Start chat with current memory state injected into instructions
+    chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config={"system_instruction": build_system_instruction()}
+    )
+    
+    print("JARVIS initialized with permanent memory access.")
+
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() in ["exit", "quit"]:
+            break
+
+        # Check if the user is giving a command to remember information
+        if user_input.lower().startswith("remember that"):
+            fact_to_save = user_input[13:].strip()
+            if memory.save_fact(fact_to_save):
+                print(f"JARVIS: Saved to permanent memory: '{fact_to_save}'")
+                # Refresh session context with the new memory
+                chat = client.chats.create(
+                    model="gemini-2.5-flash",
+                    config={"system_instruction": build_system_instruction()}
+                )
+
+        # Get response from Gemini
+        response = chat.send_message(user_input)
+        print(f"JARVIS: {response.text}")
+
+if __name__ == "__main__":
+    run_jarvis()
 
