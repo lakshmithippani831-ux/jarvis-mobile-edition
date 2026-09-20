@@ -1,62 +1,134 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>J.A.R.V.I.S Brain Test</title>
-<style>
- body{background:#000;color:#0ff;font-family:monospace;padding:20px}
- h1{text-align:center;letter-spacing:4px}
- #status{color:#f00;text-align:center;margin-bottom:15px;font-weight:bold}
- textarea{width:100%;background:#001a1a;color:#0ff;border:1px solid #0ff;padding:10px;box-sizing:border-box}
- button{width:100%;padding:14px;background:#0ff;color:#000;font-weight:bold;border:none;margin-top:10px;font-size:16px;cursor:pointer}
- #reply{border:1px solid #0ff;padding:12px;margin-top:15px;min-height:100px;white-space:pre-wrap;color:#fff}
-</style>
-</head>
-<body>
-<h1>J.A.R.V.I.S</h1>
-<div id="status">BRAIN: NOT CONNECTED</div>
-<textarea id="prompt" rows="4">Hello J.A.R.V.I.S</textarea>
-<button onclick="ask()">SEND REQUEST</button>
-<div id="reply">Waiting for response...</div>
-<script>
-// PASTE YOUR GEMINI API KEY BELOW (Must start with "AIzaSy...")
-const API_KEY = "PASTE_YOUR_API_KEY_HERE";
-
-async function ask(){
- document.getElementById("reply").innerText = "PROCESSING...";
- document.getElementById("status").innerText = "CONNECTING...";
- document.getElementById("status").style.color = "#0ff";
-
- try{
- const res = await fetch(
- "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=" + API_KEY,
- {
- method: "POST",
- headers: {"Content-Type":"application/json"},
- body: JSON.stringify({
- contents:[{ parts:[{ text: document.getElementById("prompt").value }] }]
- })
- }
- );
-
- const data = await res.json();
-
- if(data.candidates && data.candidates[0]){
- document.getElementById("reply").innerText = data.candidates[0].content.parts[0].text;
- document.getElementById("status").innerText = "✓ BRAIN ONLINE (Gemini 3 Flash)";
- document.getElementById("status").style.color = "#0f0";
- } else {
- document.getElementById("reply").innerText = "API ERROR: " + JSON.stringify(data, null, 2);
- document.getElementById("status").innerText = "CONNECTION FAILED";
- document.getElementById("status").style.color = "#f00";
- }
- }catch(e){
- document.getElementById("reply").innerText = "NETWORK ERROR: " + e.message;
- document.getElementById("status").innerText = "CONNECTION FAILED";
- document.getElementById("status").style.color = "#f00";
- }
+/* Reset and Base Theme */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
-</script>
-</body>
-</html>
+
+body {
+  background-color: #030712;
+  color: #06b6d4;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Sci-Fi Background Overlay Grid */
+body::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: 
+    radial-gradient(circle at center, rgba(6, 182, 212, 0.15) 0%, transparent 70%),
+    linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+  pointer-events: none;
+}
+
+/* Central HUD Glass Container */
+.hud-container {
+  position: relative;
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  border-radius: 20px;
+  padding: 40px 50px;
+  text-align: center;
+  box-shadow: 
+    0 0 30px rgba(6, 182, 212, 0.2),
+    inset 0 0 15px rgba(6, 182, 212, 0.1);
+  backdrop-filter: blur(10px);
+  max-width: 450px;
+  width: 90%;
+}
+
+/* Header Styling */
+h1 {
+  font-size: 1.8rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #e0f2fe;
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.8);
+  margin-bottom: 8px;
+}
+
+.status-subtitle {
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  color: rgba(6, 182, 212, 0.7);
+  text-transform: uppercase;
+  margin-bottom: 35px;
+}
+
+/* Interactive Arc Reactor Power Button */
+.reactor-btn {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #0891b2 0%, #0f172a 70%);
+  border: 3px solid #22d3ee;
+  color: #ffffff;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  margin: 0 auto 30px auto;
+  box-shadow: 
+    0 0 20px #06b6d4,
+    inset 0 0 15px #22d3ee;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Pulse animation on hover */
+.reactor-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 
+    0 0 35px #22d3ee,
+    inset 0 0 25px #06b6d4;
+  border-color: #67e8f9;
+}
+
+.reactor-btn:active {
+  transform: scale(0.97);
+}
+
+/* Outer Spinning Ring */
+.reactor-btn::before {
+  content: "";
+  position: absolute;
+  top: -12px; left: -12px; right: -12px; bottom: -12px;
+  border-radius: 50%;
+  border: 2px dashed rgba(34, 211, 238, 0.5);
+  animation: spin 12s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Console Output Box */
+.console-log {
+  background: rgba(3, 7, 18, 0.6);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  color: #a5f3fc;
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
