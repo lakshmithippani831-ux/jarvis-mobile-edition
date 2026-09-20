@@ -1,62 +1,101 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>J.A.R.V.I.S Brain Test</title>
-<style>
- body{background:#000;color:#0ff;font-family:monospace;padding:20px}
- h1{text-align:center;letter-spacing:4px}
- #status{color:#f00;text-align:center;margin-bottom:15px;font-weight:bold}
- textarea{width:100%;background:#001a1a;color:#0ff;border:1px solid #0ff;padding:10px;box-sizing:border-box}
- button{width:100%;padding:14px;background:#0ff;color:#000;font-weight:bold;border:none;margin-top:10px;font-size:16px;cursor:pointer}
- #reply{border:1px solid #0ff;padding:12px;margin-top:15px;min-height:100px;white-space:pre-wrap;color:#fff}
-</style>
-</head>
-<body>
-<h1>J.A.R.V.I.S</h1>
-<div id="status">BRAIN: NOT CONNECTED</div>
-<textarea id="prompt" rows="4">Hello J.A.R.V.I.S</textarea>
-<button onclick="ask()">SEND REQUEST</button>
-<div id="reply">Waiting for response...</div>
-<script>
-// PASTE YOUR GEMINI API KEY BELOW (Must start with "AIzaSy...")
-const API_KEY = "PASTE_YOUR_API_KEY_HERE";
+class Jarvis {
+  constructor() {
+    // Initialize Speech Synthesis (JARVIS Speaking)
+    this.synth = window.speechSynthesis;
+    
+    // Initialize Speech Recognition (JARVIS Listening)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      alert("Speech Recognition API is not supported in this browser. Use Chrome or Edge.");
+      return;
+    }
 
-async function ask(){
- document.getElementById("reply").innerText = "PROCESSING...";
- document.getElementById("status").innerText = "CONNECTING...";
- document.getElementById("status").style.color = "#0ff";
+    this.recognition = new SpeechRecognition();
+    this.recognition.continuous = true;
+    this.recognition.lang = 'en-US';
+    this.recognition.interimResults = false;
 
- try{
- const res = await fetch(
- "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=" + API_KEY,
- {
- method: "POST",
- headers: {"Content-Type":"application/json"},
- body: JSON.stringify({
- contents:[{ parts:[{ text: document.getElementById("prompt").value }] }]
- })
- }
- );
+    this.initListeners();
+  }
 
- const data = await res.json();
+  // Text-To-Speech Output
+  speak(text) {
+    if (this.synth.speaking) {
+      console.error('JARVIS is already speaking...');
+      return;
+    }
 
- if(data.candidates && data.candidates[0]){
- document.getElementById("reply").innerText = data.candidates[0].content.parts[0].text;
- document.getElementById("status").innerText = "✓ BRAIN ONLINE (Gemini 3 Flash)";
- document.getElementById("status").style.color = "#0f0";
- } else {
- document.getElementById("reply").innerText = "API ERROR: " + JSON.stringify(data, null, 2);
- document.getElementById("status").innerText = "CONNECTION FAILED";
- document.getElementById("status").style.color = "#f00";
- }
- }catch(e){
- document.getElementById("reply").innerText = "NETWORK ERROR: " + e.message;
- document.getElementById("status").innerText = "CONNECTION FAILED";
- document.getElementById("status").style.color = "#f00";
- }
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Configure voice properties
+    utterance.pitch = 0.9; // Slightly lower pitch
+    utterance.rate = 1.0;  // Standard speed
+
+    // Attempt to select a clear English voice
+    const voices = this.synth.getVoices();
+    const preferredVoice = voices.find(v => v.name.includes('Google UK English Male') || v.name.includes('Natural'));
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    this.synth.speak(utterance);
+  }
+
+  // Listen for speech inputs
+  startListening() {
+    this.recognition.start();
+    this.speak("Systems online, boss. Listening for commands.");
+  }
+
+  stopListening() {
+    this.recognition.stop();
+    this.speak("Going standby.");
+  }
+
+  // Handle incoming speech results
+  initListeners() {
+    this.recognition.onresult = (event) => {
+      const lastIndex = event.results.length - 1;
+      const command = event.results[lastIndex][0].transcript.trim().toLowerCase();
+      
+      console.log(`Received command: "${command}"`);
+      this.processCommand(command);
+    };
+
+    this.recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+    };
+  }
+
+  // Process voice logic
+  processCommand(command) {
+    if (command.includes('hello') || command.includes('hey jarvis')) {
+      this.speak("Hello boss, how can I assist you today?");
+    } 
+    else if (command.includes('time')) {
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.speak(`The current time is ${now}.`);
+    } 
+    else if (command.includes('date')) {
+      const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+      this.speak(`Today is ${today}.`);
+    } 
+    else if (command.includes('open google')) {
+      this.speak("Opening Google now.");
+      window.open('https://www.google.com', '_blank');
+    } 
+    else if (command.includes('open youtube')) {
+      this.speak("Opening YouTube.");
+      window.open('https://www.youtube.com', '_blank');
+    } 
+    else if (command.includes('system status')) {
+      this.speak("All core modules operational. Memory usage within normal parameters.");
+    } 
+    else {
+      this.speak("I heard you, but I don't have a command mapped for that yet.");
+    }
+  }
 }
-</script>
-</body>
-</html>
+
+// Instantiate JARVIS
+const jarvis = new Jarvis();
+
