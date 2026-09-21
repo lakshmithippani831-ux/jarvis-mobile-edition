@@ -1,49 +1,49 @@
-class JarvisVoiceControl {
+class JarvisAssistant {
   constructor() {
     this.synth = window.speechSynthesis;
     this.recognition = null;
     this.isListening = false;
     this.isSpeaking = false;
-    this.speechQueue = [];
+
+    // Google Gemini API Model Endpoint
+    this.modelEndpoint = "gemini-2.5-flash";
 
     this.initSpeechRecognition();
-    this.initSpeechSynthesis();
   }
 
-  // --- 1. SPEECH RECOGNITION SETUP ---
+  // --- 1. SPEECH RECOGNITION (LISTENING) ---
   initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      this.updateStatus("Speech Recognition API is not supported in this browser.");
+      this.updateStatus("ERROR: Speech recognition is not supported in this browser.");
       return;
     }
 
     this.recognition = new SpeechRecognition();
-    this.recognition.continuous = false; // Capture one command at a time
+    this.recognition.continuous = false;
     this.recognition.interimResults = false;
     this.recognition.lang = 'en-US';
 
-    // Event Listeners
     this.recognition.onstart = () => {
-      this.updateStatus("Listening for voice commands...");
       this.updateHUD(true);
+      this.updateStatus("Listening...");
     };
 
     this.recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript.trim();
       this.updateStatus(`You: "${transcript}"`);
-      this.processVoiceCommand(transcript);
+      this.processCommand(transcript);
     };
 
     this.recognition.onerror = (event) => {
       if (event.error !== 'no-speech') {
-        this.updateStatus(`Voice Error: ${event.error}`);
+        this.updateStatus(`Audio Error: ${event.error}`);
       }
     };
 
     this.recognition.onend = () => {
-      // Loop listening if JARVIS is active and not currently talking
+      // Loop listening continuously if JARVIS is active and not speaking
       if (this.isListening && !this.isSpeaking) {
         setTimeout(() => this.startListening(), 300);
       } else if (!this.isListening) {
@@ -52,40 +52,18 @@ class JarvisVoiceControl {
     };
   }
 
-  // --- 2. SPEECH SYNTHESIS SETUP ---
-  initSpeechSynthesis() {
-    if ('speechSynthesis' in window) {
-      // Warm up voices load
-      window.speechSynthesis.onvoiceschanged = () => {
-        this.synth.getVoices();
-      };
-    }
-  }
-
-  // --- 3. VOICE ENGINE CONTROLS ---
-  toggleVoiceEngine() {
+  // --- 2. VOICE CONTROLS ---
+  toggleListening() {
     if (this.isListening) {
-      this.stopListening();
+      this.isListening = false;
+      if (this.recognition) this.recognition.stop();
+      if (this.synth.speaking) this.synth.cancel();
+      this.updateHUD(false);
+      this.speak("Standby mode engaged.");
     } else {
-      this.startVoiceEngine();
+      this.isListening = true;
+      this.speak("JARVIS online. Systems operational. How may I assist you?");
     }
-  }
-
-  startVoiceEngine() {
-    this.isListening = true;
-    this.speak("JARVIS voice protocols online. Listening for your command, boss.");
-  }
-
-  stopListening() {
-    this.isListening = false;
-    if (this.recognition) {
-      this.recognition.stop();
-    }
-    if (this.synth.speaking) {
-      this.synth.cancel();
-    }
-    this.updateHUD(false);
-    this.updateStatus("Systems on standby.");
   }
 
   startListening() {
@@ -93,18 +71,17 @@ class JarvisVoiceControl {
     try {
       this.recognition.start();
     } catch (e) {
-      // Catch instance where recognition is already running
+      // Catch instance if recognition is already running
     }
   }
 
-  // --- 4. NATURAL SPEECH SYNTHESIS (JARVIS VOICE) ---
+  // --- 3. SPEECH SYNTHESIS (SPEAKING) ---
   speak(text) {
     if (!('speechSynthesis' in window)) {
       this.updateStatus(text);
       return;
     }
 
-    // Stop active speech before outputting new statement
     if (this.synth.speaking) {
       this.synth.cancel();
     }
@@ -113,23 +90,21 @@ class JarvisVoiceControl {
     this.updateStatus(`JARVIS: ${text}`);
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.pitch = 0.95; // Slightly deeper metallic tone
-    utterance.rate = 1.0;   // Standard cadence
+    utterance.pitch = 0.95; // Deeper tone for JARVIS
+    utterance.rate = 1.0;
 
-    // Voice selection priority: Natural/Google English voices
     const voices = this.synth.getVoices();
-    const jarvisVoice = voices.find(v => 
+    const preferredVoice = voices.find(v => 
       v.name.includes('Google UK English Male') || 
       v.name.includes('Daniel') || 
       v.name.includes('Google') || 
       v.lang.startsWith('en')
     );
 
-    if (jarvisVoice) utterance.voice = jarvisVoice;
+    if (preferredVoice) utterance.voice = preferredVoice;
 
     utterance.onend = () => {
       this.isSpeaking = false;
-      // Resume listening loop after speech completes
       if (this.isListening) {
         setTimeout(() => this.startListening(), 400);
       }
@@ -142,82 +117,69 @@ class JarvisVoiceControl {
     this.synth.speak(utterance);
   }
 
-  // --- 5. VOICE COMMAND PROCESSOR ---
-  async processVoiceCommand(command) {
+  // --- 4. COMMAND PROCESSING & AI BRAIN ---
+  async processCommand(command) {
     const cmd = command.toLowerCase().trim();
 
-    // Direct Web & Local Actions
-    if (cmd.includes('hello') || cmd.includes('hey jarvis') || cmd.includes('hi')) {
-      this.speak("Greetings, boss. All primary systems are fully operational.");
+    // Direct Web Navigation Commands
+    if (cmd.includes('open play store') || cmd.includes('play store')) {
+      this.speak("Opening Google Play Store.");
+      window.location.href = 'https://play.google.com/store';
       return;
     }
-
-    if (cmd.includes('time')) {
-      const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      this.speak(`The current time is ${timeString}.`);
+    if (cmd.includes('open youtube')) {
+      this.speak("Opening YouTube.");
+      window.location.href = 'https://www.youtube.com';
       return;
     }
-
-    if (cmd.includes('date') || cmd.includes('day')) {
-      const dateString = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      this.speak(`Today is ${dateString}.`);
-      return;
-    }
-
-    if (cmd.includes('open google')) {
-      this.speak("Opening Google search.");
+    if (cmd.includes('open google') && !cmd.includes('search')) {
+      this.speak("Opening Google.");
       window.location.href = 'https://www.google.com';
       return;
     }
 
-    if (cmd.includes('open youtube')) {
-      this.speak("Launching YouTube.");
-      window.location.href = 'https://www.youtube.com';
-      return;
-    }
-
-    if (cmd.includes('open play store') || cmd.includes('play store')) {
-      this.speak("Accessing Google Play Store.");
-      window.location.href = 'https://play.google.com/store';
-      return;
-    }
-
-    // AI Query Processing (Gemini API Integration)
-    const keyInput = document.getElementById('apiKeySlot') || document.getElementById('apiKeyInput');
-    const apiKey = keyInput ? keyInput.value.trim() : (localStorage.getItem('JARVIS_API_KEY') || '');
+    // Retrieve API Key from HTML input or local storage
+    const keySlot = document.getElementById('apiKeySlot') || document.getElementById('apiKeyInput');
+    const apiKey = keySlot ? keySlot.value.trim() : (localStorage.getItem('JARVIS_API_KEY') || '');
 
     if (!apiKey) {
-      this.speak("Please enter your Gemini API key into the key field to process dynamic tasks.");
+      this.speak("API key missing. Please enter your Gemini API key in the input field above.");
       return;
     }
 
-    this.updateStatus("Querying neural network...");
+    this.updateStatus("Querying Gemini Core...");
+
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.modelEndpoint}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `You are J.A.R.V.I.S., a voice assistant. Answer concisely in 1 to 2 short sentences suitable for text-to-speech output. User query: ${command}` }] }]
+            contents: [{ 
+              parts: [{ 
+                text: `You are J.A.R.V.I.S., an intelligent AI voice assistant. Give a clear, direct, and natural response in 1 to 2 short sentences. Command: ${command}` 
+              }] 
+            }]
           })
         }
       );
 
       const data = await response.json();
 
-      if (data.candidates && data.candidates[0]) {
-        const replyText = data.candidates[0].content.parts[0].text;
-        this.speak(replyText);
+      if (response.ok && data.candidates && data.candidates[0]) {
+        const aiResponse = data.candidates[0].content.parts[0].text;
+        this.speak(aiResponse);
       } else {
-        this.speak("API request failed. Please check your credentials.");
+        const errorMessage = data.error ? data.error.message : "API processing failed.";
+        this.speak("API Error: " + errorMessage);
       }
-    } catch (error) {
-      this.speak("Network communication failure. Unable to reach AI core.");
+    } catch (err) {
+      this.speak("Network connection error. Unable to reach AI core.");
     }
   }
 
-  // --- 6. UI HUD UPDATES ---
+  // --- 5. HUD UPDATES ---
   updateHUD(active) {
     const voiceStatus = document.getElementById('voiceStatus');
     const coreStatus = document.getElementById('coreStatus');
@@ -231,16 +193,15 @@ class JarvisVoiceControl {
     }
   }
 
-  updateStatus(message) {
-    const statusLog = document.getElementById('statusLog') || document.getElementById('reply');
-    if (statusLog) {
-      statusLog.innerText = message;
-    }
+  updateStatus(msg) {
+    const log = document.getElementById('statusLog') || document.getElementById('reply');
+    if (log) log.innerText = msg;
   }
 }
 
-// Initialize Voice Control Module
-const jarvis = new JarvisVoiceControl();
+// Initialize JARVIS
+const jarvis = new JarvisAssistant();
+
 
 
 
