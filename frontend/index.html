@@ -1,76 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+
+<html>
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>J.A.R.V.I.S Mobile Edition</title>
-  <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>J.A.R.V.I.S</title>
+
+<link rel="stylesheet" href="style.css">
+
 </head>
+
 <body>
 
-  <div class="jarvis-wrapper">
-    <!-- Header Title -->
-    <header class="jarvis-header">
-      <h1>J.A.R.V.I.S</h1>
-      <span class="subtitle">MOBILE EDITION</span>
-    </header>
+<header><h1>J.A.R.V.I.S</h1><p>MOBILE EDITION</p></header>
 
-    <!-- Concentric Rotating Arc Core -->
-    <div class="core-wrapper" onclick="jarvis.toggleListening()">
-      <div class="outer-ring"></div>
-      <div class="middle-ring"></div>
-      <div class="inner-core"></div>
-    </div>
-    <div class="core-status" id="coreStatus">CORE ACTIVE</div>
-// PASTE YOUR API KEY BELOW (Inside the quotes)
-const API_KEY = "AQ.Ab8RN6Iqd-i2OIpl4VyW9WaaTmacEI4rrjiz6fChlR_6lWjK3g";
-    <!-- System Status Panel -->
-    <div class="hud-panel">
-      <div class="panel-title">SYSTEM STATUS</div>
-      <div class="status-row">
-        <span>AI CORE</span>
-        <span class="status-val green">• ONLINE</span>
-      </div>
-      <div class="status-row">
-        <span>NETWORK</span>
-        <span class="status-val green">• ONLINE</span>
-      </div>
-      <div class="status-row">
-        <span>VOICE</span>
-        <span class="status-val red" id="voiceStatus">LOCKED</span>
-      </div>
-      <div class="status-row">
-        <span>MEMORY</span>
-        <span class="status-val red" id="memoryStatus">LOCKED</span>
-      </div>
-    </div>
+<div class="core">
 
-    <!-- Terminal Output -->
-    <div class="terminal-box" id="statusLog">
-      Awaiting user authorization...
-    </div>
+<div class="ring r1"></div>
 
-    <!-- Input Action Bar -->
-    <div class="input-bar">
-      <input type="text" id="textInput" placeholder="Ask J.A.R.V.I.S..." onkeypress="handleKeyPress(event)">
-      <button class="send-btn" onclick="sendTextCommand()">SEND</button>
-    </div>
-  </div>
+<div class="ring r2"></div>
 
-  <script src="jarvis.js"></script>
-  <script>
-    function sendTextCommand() {
-      const input = document.getElementById('textInput');
-      if (input.value.trim() !== '') {
-        jarvis.processCommand(input.value);
-        input.value = '';
-      }
-    }
-    function handleKeyPress(e) {
-      if (e.key === 'Enter') sendTextCommand();
-    }
-  </script>
-</body>
-</html>
+<div class="center"></div>
 
+</div>
+
+<p class="core-text">CORE ACTIVE</p>
+
+<div class="status">
+
+<h2>SYSTEM STATUS</h2>
+
+<div class="row"><span>AI CORE</span><b class="on"> ONLINE</b></div>
+
+<div class="row"><span>NETWORK</span><b class="on"> ONLINE</b></div>
+
+<div class="row"><span>VOICE</span><b class="off"> LOCKED</b></div>
+
+<div class="row"><span>MEMORY</span><b class="off"> LOCKED</b></div> </div>
+
+<div class="chat" id="chat"></div>
+
+<div class="input-area">
+
+<input id="msg" placeholder="Ask J.A.R.V.I.S...">
+
+<button id="send">SEND</button>
+
+</div>
+
+</body> </html>
+
+<script src="script.js"></script>
